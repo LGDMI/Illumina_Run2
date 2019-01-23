@@ -1,9 +1,11 @@
 ---
 title: "Illumina_Run2_Processing"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
-#### Initial settings ####
+#### Initial settings 
 ```{r}
 silvadb <- 132 # set the version of the SILVA release that was used for classification
 rdprel <- 16 #set the version of the RDP release that was used
@@ -15,6 +17,16 @@ metadatafn <- "MetaData.xlsx" #relative path (from fldr) to select other Metadat
 
 ```
 
+```{r}
+# set global chunk options: 
+library(knitr)
+opts_chunk$set(cache=TRUE, autodep = TRUE)
+#dep_auto()
+
+#in this way, for every chunck, if any previous chunck is changed, it will be recompiled
+#given that only generally the first chunck should change, on first run the cache will be 
+#rebuilt by default but subsequent downstream changes should be fine
+```
 
 #### load required packages ####
 ```{r}
@@ -263,7 +275,7 @@ library(CMETNGS) #will be integrated into CMETNGS package
 ```
 
 
-#### load data ####
+#### load data 
 ```{r}
 #### load data ####
 
@@ -344,40 +356,55 @@ taxonomy.np.ns <- taxonomy.np[which(rownames(taxonomy.np)
 ###Read Metadata###
 
 metadata <- readxl::read_excel("MetaData.xlsx",sheet = "ForR")
-metadata.tibble <- readxl::read_excel(paste0(fldr,metadatafn),sheet="ForR")
-factdescs <- readxl::read_excel(paste0(fldr,metadatafn),sheet="FactDesc")
+
+######metadata.tibble <- readxl::read_excel(paste0(fldr,metadatafn),sheet="ForR")
+######factdescs <- readxl::read_excel(paste0(fldr,metadatafn),sheet="FactDesc")
 
 #TODO(fpkerckh) : generic naming & format for MD? 
-metadata <- as.data.frame(metadata.tibble) #to avoid warnings/errors with rownames
+metadata <- as.data.frame(metadata) #to avoid warnings/errors with rownames
 if(is.numeric(metadata$SampleName)) #check for fully numeric sample names
 {
-  metadata$SampleName <- paste(dataname,metadata$SampleName,sep="")
+  #metadata$SampleName <- paste(metadata$EM,metadata$EM_Conc,metadata$Factor1,metadata$Factor2,sep=" - ")
+  metadata$SampleName <- as.character(metadata$SampleName)
 }
 rownames(metadata) <- metadata$SampleName
 metadata.smpdat <- sample_data(metadata)
+
 colnames(shared.t.ns) <- plyr::mapvalues(colnames(shared.t.ns),
                                          from=as.character(metadata$Code),
                                          to=as.character(metadata$SampleName)) #rename
 
 #the part above maps sample names to codes that were used for sequencing at LGC, regardless of the order in the shared file
 
-
 ```
 
 
-
+#### phyloseq constructors
 ```{r}
 
 #### phyloseq constructors ####
+#### only needed with deseq and...    not for barplots
 otumat.ns <- as.matrix(shared.t.ns)
 taxmat.ns <- as.matrix(taxonomy.np.ns)
 OTU       <- otu_table(otumat.ns,taxa_are_rows = TRUE)
 TAX       <- tax_table(taxmat.ns)
 physeqobj <- phyloseq(OTU,TAX)
 physeqobj.meta <- merge_phyloseq(physeqobj,metadata.smpdat)
+
+ntaxa(physeqobj.meta)
+nsamples(physeqobj.meta)
+rank_names(physeqobj.meta)
+sample_variables(physeqobj.meta)
+
+
+TopNOTUs <- names(sort(taxa_sums(physeqobj.meta), TRUE)[1:10])
+top10   <- prune_taxa(TopNOTUs, physeqobj.meta)
+p <- plot_bar(top10, x="Factor1", fill="Genus")
+p
+
 ```
 
-
+###WNWN-filtering
 ```{r}
 
 #### filtering according to WNWN ####
@@ -387,10 +414,7 @@ prevalence <- apply(as.matrix(shared.t.ns),1,function(x,minobs){sum(x>=minobs)},
 prevalencefilter <- prevalence>0.05   #een OTU moet in minstens 5% vd stalen minstens 1x voorkomen
 sharedminsingletonwnwn <- shared.t.ns[prevalencefilter,]
 
-```
 
-
-```{r}
 ##Read counts per OTU should exceed 0.5 times the number of samples
 sharedfilteredwnwn <- sharedminsingletonwnwn[rowSums(sharedminsingletonwnwn)>0.5*ncol(sharedminsingletonwnwn),]
 # deseq normalise ==> very dependent upon design
@@ -406,19 +430,6 @@ deseqdata <- as.matrix(sharedfilteredwnwn +1)
 # wnwndeseqvartransf <- getVarianceStabilizedData(deseqdata)
 # jaccard_deseq <- vegdist(t(sharedfiltereddeseq),method="jaccard",binary="FALSE") # not interpretable on negative counts!
 
-```
-
-
-
-```{r}
-# set global chunk options: 
-library(knitr)
-opts_chunk$set(cache=TRUE, autodep = TRUE)
-#dep_auto()
-
-#in this way, for every chunck, if any previous chunck is changed, it will be recompiled
-#given that only generally the first chunck should change, on first run the cache will be 
-#rebuilt by default but subsequent downstream changes should be fine
 ```
 
 
@@ -502,7 +513,6 @@ write.xlsx2(x = groupcounts, file = "Results.xlsx",
 ```
 
 
-
 ```{r}
 groupcountdf <- data.frame(groupcounts,samplename=rownames(groupcounts))
 metadatadf <- data.frame(metadata,samplename=rownames(metadata))
@@ -524,11 +534,28 @@ gglibsize + geom_boxplot() + facet_grid(~Factor2,drop=TRUE) +
 ### Classification Plots
 ```{r}
 #TODO(fpkerckh) : make it possible to increase n 
+shared.t.ns <- shared.t.ns[, as.character(A)]
+shared.ns <- data.frame(t(shared.t.ns))
+shared.ns[,256:257] <-c(metadata$Factor1,metadata$Factor2)
+
+
 barplot.genus <- makebargraphrawggplot2(tax=taxonomy.np.ns,shared=shared.t.ns,
                                         topn=8,taxlevel="Genus",shared.abs=TRUE,
                                         tax.prob=FALSE,samples=dataname,
                                         plot=TRUE)
+            + theme_minimal() + facet_grid(Factor2~Factor1)
 
+barplot.genus$ggplotobj[,4:5] <-strsplit(barplot.genus$ggplotobj[,4],
+
+
+
+barplot.genus$ggplotdf
+aes(x = paste(metadata.smpdat$EM,metadata.smpdat$EM_Conc,sep=" "))
+
+p <- makebargraphrawggplot2(tax=taxonomy.np.ns,shared=shared.t.ns) + facet_grid(~Factor1, drop = TRUE)
+   
+ 
+ 
 cat('\n\n') #from https://groups.google.com/forum/#!topic/knitr/MJVLiVyGCro
 barplot.genusviridis <- makebargraphrawggplot2(tax=taxonomy.np.ns,shared=shared.t.ns,
                                         topn=8,taxlevel="Genus",shared.abs=TRUE,
@@ -540,6 +567,7 @@ highqualgraphR(barplot.genus$ggplotobj,filename = "Barplot_genus",
 highqualgraphR(barplot.genusviridis$ggplotobj,filename = "Barplot_genus_viridis",
                extension = c("png","tiff"),pointsize=12)
 genustopexp <- barplot.genus$ggplotdf  %>% dplyr::select(-Var2o)  %>% tidyr::spread(Var2,value)
+
 write.xlsx2(x = genustopexp, file = "Results.xlsx",
             sheetName = "genusTop", append = TRUE)
 #here you can order the samples in an order which you consider appropriate, using +scale_x_discrete: e.g.:
@@ -550,6 +578,8 @@ cat('\n\n')
 barplot.family <- makebargraphrawggplot2(tax=taxonomy.np.ns,shared=shared.t.ns,
                                                topn=8,taxlevel="Familia",shared.abs=TRUE,
                                                tax.prob=FALSE,samples=dataname,plot=TRUE)
+
+
 
 cat('\n\n')
 barplot.famviridis <- makebargraphrawggplot2(tax=taxonomy.np.ns,shared=shared.t.ns,
@@ -615,6 +645,7 @@ phygen + labs(title=paste("Taxonomic distribution ",dataname," samples",sep=""))
          scale_x_discrete(limits=c(metadata$SampleName))
 phygenp <- phygen + labs(title=paste("Taxonomic distribution ",dataname," samples",sep=""))+
          scale_x_discrete(limits=c(metadata$SampleName))
+
 highqualgraphR(phygenp,filename = "Barplot_genus_phyloseq_reads",
                extension = c("png","tiff"),pointsize = 12)
 cat('\n\n')
