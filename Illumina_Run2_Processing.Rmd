@@ -529,12 +529,46 @@ gglibsize + geom_boxplot() + facet_grid(~Factor2,drop=TRUE) +
 
 ```
 
+### Own attempt at bargraphs
+```{r}
+library(vegan)
+shared.t.ns <- shared.t.ns[, as.character(metadata$SampleName)]
+
+# calculation of relative abundances
+shared.t.ns.relabun <- decostand(data.frame(shared.t.ns[1:255]), 2, method = "total")
+colnames(shared.t.ns.relabun) <- colnames(shared.t.ns)
+
+# add taxonomy column 
+shared.t.ns.relabun$Genus <- taxonomy.np.ns$Genus
+
+#summate per genus
+shared.t.ns.relabun.Gr <- aggregate(shared.t.ns.relabun[1:255], by=list(Category=shared.t.ns.relabun$Genus), FUN=sum)
+
+#filter out 8 most abundant genusses
+shared.t.ns.relabun.Gr$Sums <- rowSums (shared.t.ns.relabun.Gr[2:256])
+shared.t.ns.relabun.Gr <- shared.t.ns.relabun.Gr[order(-shared.t.ns.relabun.Gr$Sums),]
+shared.t.ns.relabun.Gr.top8 <- shared.t.ns.relabun.Gr[1:8,]
+shared.t.ns.relabun.Gr.rest <- colSums(shared.t.ns.relabun.Gr[9:281,2:257])
+shared.t.ns.relabun.Gr.top8[9,2:257] <- shared.t.ns.relabun.Gr.rest
+shared.t.ns.relabun.Gr.top8$Category[9] <- c("Other")
+
+
+shared.t.ns.relabun.Gr.top8.R <- tidyr::gather(shared.t.ns.relabun.Gr.top8,key = "SampleName", value = "RelativeAbundance",2:257)
+
+#add metadata
+shared.merge.gen <- merge(shared.t.ns.relabun.Gr.top8.R,metadata[2:6], by = "SampleName")
+shared.merge.gen <- dplyr::arrange(shared.merge.gen,as.numeric(shared.merge.gen$SampleName))
+
+#plot bargraphs
+
+
+```
 
 
 ### Classification Plots
 ```{r}
 #TODO(fpkerckh) : make it possible to increase n 
-shared.t.ns <- shared.t.ns[, as.character(A)]
+shared.t.ns <- shared.t.ns[, as.character(metadata$SampleName)]
 shared.ns <- data.frame(t(shared.t.ns))
 shared.ns[,256:257] <-c(metadata$Factor1,metadata$Factor2)
 
@@ -549,6 +583,10 @@ barplot.genus$ggplotobj[,4:5] <-strsplit(barplot.genus$ggplotobj[,4],
 
 
 
+                                         
+                                         
+                                         
+                                         
 barplot.genus$ggplotdf
 aes(x = paste(metadata.smpdat$EM,metadata.smpdat$EM_Conc,sep=" "))
 
