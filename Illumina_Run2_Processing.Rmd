@@ -529,37 +529,287 @@ gglibsize + geom_boxplot() + facet_grid(~Factor2,drop=TRUE) +
 
 ```
 
-### Own attempt at bargraphs
+# Own attempt at bargraphs
+
+
 ```{r}
 library(vegan)
+#sorteer shared.t.ns volgens samplenummer
 shared.t.ns <- shared.t.ns[, as.character(metadata$SampleName)]
 
-# calculation of relative abundances
+# calculation of relative abundances (instead of absolute reads)
 shared.t.ns.relabun <- decostand(data.frame(shared.t.ns[1:255]), 2, method = "total")
 colnames(shared.t.ns.relabun) <- colnames(shared.t.ns)
+```
 
+
+### GENUS
+```{r}
 # add taxonomy column 
 shared.t.ns.relabun$Genus <- taxonomy.np.ns$Genus
 
-#summate per genus
+#summate relative abundances in each sample per genus
 shared.t.ns.relabun.Gr <- aggregate(shared.t.ns.relabun[1:255], by=list(Category=shared.t.ns.relabun$Genus), FUN=sum)
 
 #filter out 8 most abundant genusses
-shared.t.ns.relabun.Gr$Sums <- rowSums (shared.t.ns.relabun.Gr[2:256])
+shared.t.ns.relabun.Gr$Sums <- rowSums(shared.t.ns.relabun.Gr[2:256])
 shared.t.ns.relabun.Gr <- shared.t.ns.relabun.Gr[order(-shared.t.ns.relabun.Gr$Sums),]
 shared.t.ns.relabun.Gr.top8 <- shared.t.ns.relabun.Gr[1:8,]
-shared.t.ns.relabun.Gr.rest <- colSums(shared.t.ns.relabun.Gr[9:281,2:257])
-shared.t.ns.relabun.Gr.top8[9,2:257] <- shared.t.ns.relabun.Gr.rest
+shared.t.ns.relabun.Gr.top8[9,2:257] <- colSums(shared.t.ns.relabun.Gr[9:281,2:257])
+
+#adding "Other" on nineth place of first column
+shared.t.ns.relabun.Gr.top8$Category <- as.character(shared.t.ns.relabun.Gr.top8$Category)
 shared.t.ns.relabun.Gr.top8$Category[9] <- c("Other")
+shared.t.ns.relabun.Gr.top8$Category <- as.factor(shared.t.ns.relabun.Gr.top8$Category)
 
+shared.t.ns.relabun.Gr.top8$Sums <- NULL
 
-shared.t.ns.relabun.Gr.top8.R <- tidyr::gather(shared.t.ns.relabun.Gr.top8,key = "SampleName", value = "RelativeAbundance",2:257)
+#rearrange data-table in order to be able to add metadata
+shared.t.ns.relabun.Gr.top8.R <- tidyr::gather(shared.t.ns.relabun.Gr.top8,key = "SampleName", value = "RelativeAbundance",2:256)
 
 #add metadata
 shared.merge.gen <- merge(shared.t.ns.relabun.Gr.top8.R,metadata[2:6], by = "SampleName")
 shared.merge.gen <- dplyr::arrange(shared.merge.gen,as.numeric(shared.merge.gen$SampleName))
+shared.merge.gen <- unite(shared.merge.gen, Treatment, c(EM, EM_Conc), remove=FALSE, sep =' - ')
 
 #plot bargraphs
+
+BarOrder <- c("Other","Prevotella","Parabacteroides","Lachnospiraceae_unclassified","Faecalibacterium","Enterobacteriaceae_unclassified","Blautia","Bacteroides","Alistipes" )
+
+X.order <- c("CMC - 0.005","CMC - 0.05","CMC - 0.5","P80 - 0.005", "P80 - 0.05","P80 - 0.5","SoyLec - 0.005", "SoyLec - 0.05","SoyLec - 0.5","SL - 0.005","SL - 0.05","SL - 0.5","RL - 0.005","RL - 0.05","RL - 0.5", "Control - 0")
+
+X.order.RL <- c("Control - 0","RL - 0.005","RL - 0.05","RL - 0.5")
+
+#position_fill(reverse = TRUE)
+barplot.genus.me <-ggplot(data=shared.merge.gen, aes(x= Treatment, y=RelativeAbundance, fill = factor(Category, levels=as.character(shared.t.ns.relabun.Gr.top8$Category)))) +
+  geom_bar(stat="identity", position = position_fill(reverse = TRUE))+  
+  facet_grid(Factor2~Factor1)+
+  theme_minimal()+ 
+  #theme(axis.text.x = element_text(size=10), legend.title=element_text(size=10), legend.text=element_text(size=7))
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Batch Experiments - Barplot Genus")+
+  ylab("Relative Abundance")+
+  theme(axis.text.x=element_text(size =8, angle=90, hjust=1))+
+  labs(fill = "Top 8 Genus")+
+  scale_x_discrete(limits=X.order)
+barplot.genus.me
+
+barplot.genus.me.RL <-ggplot(data=shared.merge.gen, aes(x= Treatment, y=RelativeAbundance, fill = factor(Category, levels=as.character(shared.t.ns.relabun.Gr.top8$Category)))) +
+  geom_bar(stat="identity", position = position_fill(reverse = TRUE))+  
+  facet_grid(Factor2~Factor1)+
+  theme_minimal(base_size = 10)+ 
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Batch Experiments - Barplot Genus")+
+  ylab("Relative Abundance")+
+  theme(axis.text.x=element_text(angle=90, hjust=1))+
+  labs(fill = "Top 8 Genus")+
+  scale_x_discrete(limits=c("Control - 0","RL - 0.005","RL - 0.05","RL - 0.5"))
+barplot.genus.me.RL
+
+#levels (as.factor(shared.merge.gen$Treatment))
+
+
+#plot only Entero's
+shared.merge.gen.Ent <- shared.merge.gen %>%  filter(as.factor(shared.merge.gen$Category) == "Enterobacteriaceae_unclassified")
+
+
+Abs.Ent <- shared.t.ns[2,]
+Rel.Ent <- shared.t.ns.relabun[2,1:255]
+
+Ent.data <- rbind(Abs.Ent,Rel.Ent)
+rownames(Ent.data) <- c("Abs.Enterobacteriaceae","Rel.Enterobacteriaceae")
+Ent.data <- data.frame(t(Ent.data))
+Ent.data$SampleName <- rownames(Ent.data)
+
+#add metadata
+Ent.data.merge <- merge(Ent.data,metadata[2:6], by = "SampleName")
+Ent.data.merge <- dplyr::arrange(Ent.data.merge,as.numeric(Ent.data.merge$SampleName))
+Ent.data.merge <- unite(Ent.data.merge, Treatment, c(EM, EM_Conc), remove=FALSE, sep =' - ')
+Ent.data.merge$Rel.Enterobacteriaceae <-Ent.data.merge$Rel.Enterobacteriaceae *3*10000
+
+#rearrange data-table in order to be able to add metadata
+Ent.data.merge.R <- tidyr::gather(Ent.data.merge,key = "RelAbs", value =Abundance,c("Abs.Enterobacteriaceae","Rel.Enterobacteriaceae"))
+
+barplot.Entero <-ggplot(data=Ent.data.merge.R, aes(x= Treatment,y = Abundance, fill = as.factor(RelAbs))) +
+  geom_bar(stat ="identity", position ="dodge")+  
+  scale_y_continuous(sec.axis = sec_axis(trans = ~./(3*10000),name = "Rel.Abundance"))+
+  facet_grid(Factor2~Factor1)+
+  theme_minimal()+ 
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Batch Experiments - Barplot Enterobacteriaceae")+
+  ylab("Relative Abundance")+
+  theme(axis.text.x=element_text(angle=90, hjust=1))+
+  labs(fill = "Abundance")+
+  scale_x_discrete(limits=X.order)
+barplot.Entero
+
+```
+
+### FAMILY 
+```{r}
+### FAMILY ###
+# add taxonomy column 
+shared.t.ns.relabun$Familia <- taxonomy.np.ns$Familia
+
+#summate relative abundances in each sample per genus
+shared.t.ns.relabun.Gr.fam <- aggregate(shared.t.ns.relabun[1:255], by=list(Category=shared.t.ns.relabun$Familia), FUN=sum)
+
+#filter out 8 most abundant genusses
+shared.t.ns.relabun.Gr.fam$Sums <- rowSums (shared.t.ns.relabun.Gr.fam[2:256])
+shared.t.ns.relabun.Gr.fam <- shared.t.ns.relabun.Gr.fam[order(-shared.t.ns.relabun.Gr.fam$Sums),]
+shared.t.ns.relabun.Gr.fam.top8 <- shared.t.ns.relabun.Gr.fam[1:8,]
+Nfam = nrow(shared.t.ns.relabun.Gr.fam)
+shared.t.ns.relabun.Gr.fam.top8[9,2:257] <- colSums(shared.t.ns.relabun.Gr.fam[9:Nfam,2:257])  
+
+#adding "Other" on nineth place of first column
+shared.t.ns.relabun.Gr.fam.top8$Category <- as.character(shared.t.ns.relabun.Gr.fam.top8$Category)
+shared.t.ns.relabun.Gr.fam.top8$Category[9] <- c("Other")
+shared.t.ns.relabun.Gr.fam.top8$Category <- as.factor(shared.t.ns.relabun.Gr.fam.top8$Category)
+
+#remove Sums-column (was only used for picking out most abundant)
+shared.t.ns.relabun.Gr.fam.top8$Sums <- NULL
+
+#rearrange data-table in order to be able to add metadata
+shared.t.ns.relabun.Gr.fam.top8.R <- tidyr::gather(shared.t.ns.relabun.Gr.fam.top8,key = "SampleName", value = "RelativeAbundance",2:256)
+
+#add metadata
+shared.merge.Fam <- merge(shared.t.ns.relabun.Gr.fam.top8.R,metadata[2:6], by = "SampleName")
+shared.merge.Fam <- dplyr::arrange(shared.merge.Fam,as.numeric(shared.merge.Fam$SampleName))
+shared.merge.Fam <- unite(shared.merge.Fam, Treatment, c(EM, EM_Conc), remove=FALSE, sep =' - ')
+
+#plot bargraphs
+
+X.order <- c("CMC - 0.005","CMC - 0.05","CMC - 0.5","P80 - 0.005", "P80 - 0.05","P80 - 0.5","SoyLec - 0.005", "SoyLec - 0.05","SoyLec - 0.5","SL - 0.005","SL - 0.05","SL - 0.5","RL - 0.005","RL - 0.05","RL - 0.5", "Control - 0")
+
+X.order.RL <- c("Control - 0","RL - 0.005","RL - 0.05","RL - 0.5")
+
+barplot.fam.me <-ggplot(data=shared.merge.Fam, aes(x= Treatment, y=RelativeAbundance, fill = factor(Category, levels=as.character(shared.t.ns.relabun.Gr.fam.top8$Category)))) +
+  geom_bar(stat="identity", position = position_fill(reverse = TRUE))+  
+  facet_grid(Factor2~Factor1)+
+  theme_minimal(base_size = 10)+ 
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Batch Experiments - Barplot Family")+
+  ylab("Relative Abundance")+
+  theme(axis.text.x=element_text(angle=90, hjust=1))+
+  labs(fill = "Top 8 Families")+
+  scale_x_discrete(limits=X.order)
+barplot.fam.me
+
+barplot.fam.me.RL <-ggplot(data=shared.merge.Fam, aes(x= Treatment, y=RelativeAbundance, fill = factor(Category, levels=as.character(shared.t.ns.relabun.Gr.fam.top8$Category)))) +
+  geom_bar(stat="identity", position = position_fill(reverse = TRUE))+  
+  facet_grid(Factor2~Factor1)+
+  theme_minimal(base_size = 10)+ 
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Batch Experiments - Barplot Family")+
+  ylab("Relative Abundance")+
+  theme(axis.text.x=element_text(angle=90, hjust=1))+
+  labs(fill = "Top 8 Families")+
+  scale_x_discrete(limits=X.order.RL)
+barplot.fam.me.RL
+
+
+
+
+
+```
+
+```{r}
+### ORDO
+
+
+### CLASSIS
+```
+
+### PHYLUM
+```{r}
+# add taxonomy column 
+shared.t.ns.relabun$Phylum <- taxonomy.np.ns$Phylum
+
+#summate relative abundances in each sample per genus
+shared.t.ns.relabun.Gr.phyl <- aggregate(shared.t.ns.relabun[1:255], by=list(Category=shared.t.ns.relabun$Phylum), FUN=sum)
+
+#filter out 8 most abundant genusses
+shared.t.ns.relabun.Gr.phyl$Sums <- rowSums(shared.t.ns.relabun.Gr.phyl[2:256])
+shared.t.ns.relabun.Gr.phyl <- shared.t.ns.relabun.Gr.phyl[order(-shared.t.ns.relabun.Gr.phyl$Sums),]
+shared.t.ns.relabun.Gr.phyl.top8 <- shared.t.ns.relabun.Gr.phyl[1:8,]
+Nphyl = nrow(shared.t.ns.relabun.Gr.phyl)
+shared.t.ns.relabun.Gr.phyl.top8[9,2:257] <- colSums(shared.t.ns.relabun.Gr.phyl[9:Nphyl,2:257])
+
+#adding "Other" on nineth place of first column
+shared.t.ns.relabun.Gr.phyl.top8$Category <- as.character(shared.t.ns.relabun.Gr.phyl.top8$Category)
+shared.t.ns.relabun.Gr.phyl.top8$Category[9] <- c("Other")
+shared.t.ns.relabun.Gr.phyl.top8$Category <- as.factor(shared.t.ns.relabun.Gr.phyl.top8$Category)
+
+shared.t.ns.relabun.Gr.phyl.top8$Sums <- NULL
+
+#rearrange data-table in order to be able to add metadata
+shared.t.ns.relabun.Gr.phyl.top8.R <- tidyr::gather(shared.t.ns.relabun.Gr.phyl.top8,key = "SampleName", value = "RelativeAbundance",2:256)
+
+#add metadata
+shared.merge.phyl <- merge(shared.t.ns.relabun.Gr.phyl.top8.R,metadata[2:6], by = "SampleName")
+shared.merge.phyl <- dplyr::arrange(shared.merge.phyl,as.numeric(shared.merge.phyl$SampleName))
+shared.merge.phyl <- unite(shared.merge.phyl, Treatment, c(EM, EM_Conc), remove=FALSE, sep =' - ')
+
+#plot bargraphs
+
+X.order <- c("CMC - 0.005","CMC - 0.05","CMC - 0.5","P80 - 0.005", "P80 - 0.05","P80 - 0.5","SoyLec - 0.005", "SoyLec - 0.05","SoyLec - 0.5","SL - 0.005","SL - 0.05","SL - 0.5","RL - 0.005","RL - 0.05","RL - 0.5", "Control - 0")
+
+X.order.RL <- c("Control - 0","RL - 0.005","RL - 0.05","RL - 0.5")
+
+#position_fill(reverse = TRUE)
+
+barplot.phylum.me <-ggplot(data=shared.merge.phyl, aes(x= Treatment, y=RelativeAbundance, fill = factor(Category, levels=as.character(shared.t.ns.relabun.Gr.phyl.top8$Category)))) +
+  geom_bar(stat="identity", position = position_fill(reverse = TRUE))+  
+  facet_grid(Factor2~Factor1)+
+  theme_minimal(base_size = 10)+ 
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Batch Experiments - Barplot Phylum")+
+  ylab("Relative Abundance")+
+  theme(axis.text.x=element_text(angle=90, hjust=1))+
+  labs(fill = "Top 8 Phyla")+
+  scale_x_discrete(limits=X.order)
+barplot.phylum.me
+
+barplot.phylum.me.RL <-ggplot(data=shared.merge.phyl, aes(x= Treatment, y=RelativeAbundance, fill = factor(Category, levels=as.character(shared.t.ns.relabun.Gr.phyl.top8$Category)))) +
+  geom_bar(stat="identity", position = position_fill(reverse = TRUE))+  
+  facet_grid(Factor2~Factor1)+
+  theme_minimal(base_size = 10)+ 
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Batch Experiments - Barplot Phylum")+
+  ylab("Relative Abundance")+
+  theme(axis.text.x=element_text(angle=90, hjust=1))+
+  labs(fill = "Top 8 Phyla")+
+  scale_x_discrete(limits=c("Control - 0","RL - 0.005","RL - 0.05","RL - 0.5"))
+barplot.phylum.me.RL
+
+
+### write out plots into pdf file
+pdf("Plot_Batch_Illumina_Run2_Classification.pdf",width = 12, height = 4, pointsize = 10)
+    barplot.genus.me
+    barplot.fam.me
+    barplot.phylum.me
+    barplot.genus.me.RL
+    barplot.fam.me.RL
+    barplot.phylum.me.RL
+dev.off()
+    
+png ("Plot_Batch_Illumina_Run2_Classif_Genus.png", height = 1200, width = 2200, res = 150)
+   barplot.genus.me
+   dev.off()
+png ("Plot_Batch_Illumina_Run2_Classif_Family.png",height = 1200, width = 2200, res = 150)
+    barplot.fam.me
+png ("Plot_Batch_Illumina_Run2_Classif_Phylum.png", height = 1200, width = 2200, res = 150)
+    barplot.phylum.me
+    dev.off()
+png ("Plot_Batch_Illumina_Run2_Classif_Gen_RL.png",height = 1200, width = 2200, res = 150)
+    barplot.genus.me.RL
+    dev.off()
+png ("Plot_Batch_Illumina_Run2_Classif_Fam_RL.png",height = 1200, width = 2200, res = 150)
+    barplot.fam.me.RL
+    dev.off()
+png ("Plot_Batch_Illumina_Run2_Classif_Phyl_RL.png",height = 1200, width = 2200, res = 150)
+    barplot.phylum.me.RL
+dev.off()
 
 
 ```
@@ -571,6 +821,9 @@ shared.merge.gen <- dplyr::arrange(shared.merge.gen,as.numeric(shared.merge.gen$
 shared.t.ns <- shared.t.ns[, as.character(metadata$SampleName)]
 shared.ns <- data.frame(t(shared.t.ns))
 shared.ns[,256:257] <-c(metadata$Factor1,metadata$Factor2)
+metadata.barplot <- metadata
+metadata.barplot$Factor1 <- c("Donor")
+metadata.barplot$Factor2 <- c("Timepoint")
 
 
 barplot.genus <- makebargraphrawggplot2(tax=taxonomy.np.ns,shared=shared.t.ns,
@@ -578,6 +831,8 @@ barplot.genus <- makebargraphrawggplot2(tax=taxonomy.np.ns,shared=shared.t.ns,
                                         tax.prob=FALSE,samples=dataname,
                                         plot=TRUE)
             + theme_minimal() + facet_grid(Factor2~Factor1)
+
+barplot.genus$ggplotdf <- merge(barplot.genus$ggplotdf,metadata[2:6],by= SampleName)
 
 barplot.genus$ggplotobj[,4:5] <-strsplit(barplot.genus$ggplotobj[,4],
 
