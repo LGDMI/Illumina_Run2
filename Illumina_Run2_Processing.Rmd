@@ -589,7 +589,7 @@ barplot.genus.me <-ggplot(data=shared.merge.gen, aes(x= Treatment, y=RelativeAbu
   scale_fill_brewer(palette="Set1")+
   ggtitle("Batch Experiments - Barplot Genus")+
   ylab("Relative Abundance")+
-  theme(axis.text.x=element_text(size =8, angle=90, hjust=1))+
+   theme(axis.text.x=element_text(angle=90, hjust=1, size = 6),axis.text.y=element_text(size = 6) )+
   labs(fill = "Top 8 Genus")+
   scale_x_discrete(limits=X.order)
 barplot.genus.me
@@ -730,7 +730,7 @@ barplot.fam.me <-ggplot(data=shared.merge.Fam, aes(x= Treatment, y=RelativeAbund
   scale_fill_brewer(palette="Set1")+
   ggtitle("Batch Experiments - Barplot Family")+
   ylab("Relative Abundance")+
-  theme(axis.text.x=element_text(angle=90, hjust=1))+
+  theme(axis.text.x=element_text(angle=90, hjust=1, size = 6),axis.text.y=element_text(size = 6) )+
   labs(fill = "Top 8 Families")+
   scale_x_discrete(limits=X.order)
 barplot.fam.me
@@ -805,7 +805,7 @@ barplot.phylum.me <-ggplot(data=shared.merge.phyl, aes(x= Treatment, y=RelativeA
   scale_fill_brewer(palette="Set1")+
   ggtitle("Batch Experiments - Barplot Phylum")+
   ylab("Relative Abundance")+
-  theme(axis.text.x=element_text(angle=90, hjust=1))+
+  theme(axis.text.x=element_text(angle=90, hjust=1, size = 6), axis.text.y = element_text(size = 6))+
   labs(fill = "Top 8 Phyla")+
   scale_x_discrete(limits=X.order)
 barplot.phylum.me
