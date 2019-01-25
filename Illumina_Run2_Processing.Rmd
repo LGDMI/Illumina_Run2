@@ -638,11 +638,51 @@ barplot.Entero <-ggplot(data=Ent.data.merge.R, aes(x= Treatment,y = Abundance, f
   scale_fill_brewer(palette="Set1")+
   ggtitle("Batch Experiments - Barplot Enterobacteriaceae")+
   ylab("Relative Abundance")+
-  theme(axis.text.x=element_text(angle=90, hjust=1))+
+  theme(axis.text.x=element_text(angle=90, hjust=1, size = 8),axis.text.y=element_text( size = 8))+
   labs(fill = "Abundance")+
-  scale_x_discrete(limits=X.order)
+  scale_x_discrete(limits=X.order)+
+  theme(legend.position="bottom")
 barplot.Entero
 
+png('Plot_EnterobacteriaceaeAbundance_8Donors.png', res = 300, width = 700, height = 300)
+barplot.Entero
+dev.off()
+
+barplot.Entero.2 <-ggplot(data=Ent.data.merge.R, aes(x= Treatment,y = Abundance, fill = as.factor(RelAbs))) +
+  geom_bar(stat ="identity", position ="dodge")+  
+  scale_y_continuous(sec.axis = sec_axis(trans = ~./(3*10000),name = "Rel.Abundance"))+
+  facet_grid(RelAbs~Factor1)+
+  theme_minimal()+ 
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Batch Experiments - Barplot Enterobacteriaceae")+
+  ylab("Abundance")+
+  theme(axis.text.x=element_text(angle=90, hjust=1, size = 6),axis.text.y=element_text( size = 6))+
+  labs(fill = "Abundance")+
+  scale_x_discrete(limits=X.order)+
+  theme(legend.position="bottom")
+barplot.Entero.2
+
+png('Plot_EnterobacteriaceaeRelAbs_8Donors.png', res = 300, width = 700, height = 300)
+barplot.Entero
+dev.off()
+
+#only controls3
+Ent.data.merge.R$Treatment <- as.factor(Ent.data.merge.R$Treatment)
+Ent.data.merge.R.Contr <- dplyr::filter(Ent.data.merge.R,Treatment == "Control - 0" )
+
+barplot.Entero.Contr <-ggplot(data=Ent.data.merge.R.Contr, aes(x= as.factor(Factor1),y = Abundance, fill = as.factor(RelAbs))) +
+  geom_bar(stat ="identity", position ="dodge")+  
+  scale_y_continuous(sec.axis = sec_axis(trans = ~./(3*10000),name = "Rel.Abundance"))+
+  #facet_grid(RelAbs)+
+  theme_minimal()+ 
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Batch Experiments - Barplot Enterobacteriaceae Control")+
+  ylab("Abundance")+
+  xlab("Donor")+
+  theme(axis.text.x=element_text(angle=90, hjust=1, size = 10),axis.text.y=element_text( size = 10))+
+  labs(fill = "Abundance")+
+  theme(legend.position="bottom")
+barplot.Entero.Contr
 ```
 
 ### FAMILY 
@@ -769,6 +809,8 @@ barplot.phylum.me <-ggplot(data=shared.merge.phyl, aes(x= Treatment, y=RelativeA
   labs(fill = "Top 8 Phyla")+
   scale_x_discrete(limits=X.order)
 barplot.phylum.me
+
+
 
 barplot.phylum.me.RL <-ggplot(data=shared.merge.phyl, aes(x= Treatment, y=RelativeAbundance, fill = factor(Category, levels=as.character(shared.t.ns.relabun.Gr.phyl.top8$Category)))) +
   geom_bar(stat="identity", position = position_fill(reverse = TRUE))+  
